@@ -1,1 +1,5 @@
 fastapi[standard]
+transformers
+scikit-learn
+torch
+pandas
