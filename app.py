@@ -1,6 +1,6 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 import subprocess
-from fastapi.responses import HTMLResponse
+from fastapi.responses import StreamingResponse
 from utils.models import *
 
 short_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('utf-8').strip()
@@ -21,14 +21,9 @@ async def root():
 async def connect():
     return model_info
 
-@app.websocket("/train")
-async def train(websocket: WebSocket):
-    await websocket.accept()
-    still_traing = True
-    await websocket.send_text(f"Connected to training server | on commit - {short_hash}")
-    while still_traing:
-        ...
-        #TODO: Add training logic and a way to send back logs
+@app.get("/train")
+async def train():
+    return StreamingResponse(train(), media_type="text/plain")
 
 @app.post("/inference")
 async def inference(sample: Smiles):

@@ -38,7 +38,7 @@ def load_data(dataset: Literal["Sweet", "Bitter", "BBBP"]):
     val_data = TensorDataset(select_samples(encoded_inputs, val_indices)['input_ids'], select_samples(encoded_inputs, val_indices)['attention_mask'], torch.tensor(val_labels))
     test_data = TensorDataset(select_samples(encoded_inputs, test_indices)['input_ids'], select_samples(encoded_inputs, test_indices)['attention_mask'], torch.tensor(test_labels))
 
-    return encoded_inputs, train_data, val_data, test_data
+    return train_data, val_data, test_data
 
 # Function to add to buffer
 def add_to_buffer(replay_buffer, buffer_size, batch_size, input_ids, attention_mask, labels):

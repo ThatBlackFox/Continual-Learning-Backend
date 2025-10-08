@@ -6,8 +6,8 @@ from typing import Literal
 from train_utils import *
 
 
-async def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16, ewc_lambda = 0.4, buffer_size = 1000, epochs = 3, lr=2e-5, refresh_frequency = 1, refresh_steps = 5):
-    encoded_inputs, train_data, val_data, test_data = load_data(dataset)
+def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16, ewc_lambda = 0.4, buffer_size = 1000, epochs = 3, lr=2e-5, refresh_frequency = 1, refresh_steps = 5):
+    train_data, val_data, test_data = load_data(dataset)
 
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_data, batch_size=batch_size)
@@ -19,7 +19,7 @@ async def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: in
     replay_buffer = {'input_ids': [], 'attention_mask': [], 'labels': []}
 
     model = RobertaForSequenceClassification.from_pretrained('seyonec/ChemBERTa-zinc-base-v1', num_labels=2)
-    optimizer = AdamW(model.parameters(), lr=2e-5)
+    optimizer = AdamW(model.parameters(), lr=lr)
     
     # Variables for tracking accuracy
     anytime_accuracies = []
@@ -76,7 +76,7 @@ async def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: in
 
         avg_train_loss = total_loss / len(train_loader)
         yield f'Epoch {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}'
-        print(f'Epoch {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}')
+        print(f'Epocgh {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}')
 
         # Calculate Fisher Information for oEWC after the task
         current_fisher = compute_fisher_information(model, train_loader)
