@@ -1,12 +1,11 @@
 import torch
-from transformers import RobertaForSequenceClassification, RobertaTokenizer, AdamW
-from torch.utils.data import DataLoader, TensorDataset
+from transformers import RobertaTokenizer
+from torch.utils.data import TensorDataset
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 import pandas as pd
 import random
 from typing import Literal
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 datasets = {
     "Sweet": "data/sweet.csv",
     "Bitter": "data/bitter.csv",
@@ -81,7 +80,7 @@ def compute_fisher_information(model, data_loader):
     model.eval()
     for batch in data_loader:
         input_ids, attention_mask, labels = batch
-        output = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+        output = model(input_ids=input_ids.to(device), attention_mask=attention_mask.to(device), labels=labels.to(device))
         loss = output.loss
         model.zero_grad()
         loss.backward()
