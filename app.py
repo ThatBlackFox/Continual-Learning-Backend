@@ -32,16 +32,25 @@ async def add_message(message: dict):
     return {"status": "Message added"}
 
 @app.get("/api/train")
-async def train_endpoint():
-    train_thread = threading.Thread(target = train.train_loop, kwargs={"dataset":"Sweet"})
+async def train_endpoint(batch_size,ewc_lambda,buffer_size,epochs,learning_rate,refresh_frequency,refresh_steps,task):
+    train_thread = threading.Thread(target = train.train_loop, kwargs={"batch_size":int(batch_size),
+                                                                       "ewc_lambda":float(ewc_lambda),
+                                                                       "buffer_size":int(buffer_size),
+                                                                       "epochs":int(epochs),
+                                                                       "lr":float(learning_rate),
+                                                                       "refresh_frequency":int(refresh_frequency),
+                                                                       "refresh_steps":int(refresh_steps),
+                                                                       "dataset":task})
     train_thread.start()
     async def event_stream():
-        yield "Startin the stream, sup chat."
-        yield f"{train_thread.is_alive()}"
         while True:
             if train_messages:
                 message = train_messages.pop(0)
-                yield f"data: {message}\n\n"
+                if 'Complete' in message:
+                    yield f"> {message}\n\n"
+                    yield f"--------------------------------\n\n"
+                    break
+                yield f"> {message}\n\n"
             await asyncio.sleep(1)  # Adjust this to control the streaming rate
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

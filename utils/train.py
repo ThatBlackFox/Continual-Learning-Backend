@@ -164,5 +164,6 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
     # Calculate forgetting measure
     forgetting_measure = initial_accuracies['Task1'] - final_accuracies['Task1']
     requests.post(url="http://localhost:8000/add-msg", json={"message":f'Forgetting Measure for Task1: {forgetting_measure}\n'})
+    requests.post(url="http://localhost:8000/add-msg", json={"message":f'Completed Training Loop\n'})
     print(f'Forgetting Measure for Task1: {forgetting_measure}')
     #yield (f'Forgetting Measure for Task1: {forgetting_measure}')
