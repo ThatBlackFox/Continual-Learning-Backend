@@ -1,19 +1,18 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
 import subprocess
 from fastapi.responses import StreamingResponse
 from utils.models import *
 from utils import train
-import httpx
 import threading
 import asyncio
+from utils import infer
 
 short_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('utf-8').strip()
 train_messages = []
 model_info = {
     "Model": "ChemBERTa-zinc-base-v1",
     "Training modes": ["TIL"],
-    "Datasets": ["BBBP","Bitter", "Sweet"]
+    "Datasets": ["BBBP", "Bitter", "Sweet"]
 }
 
 app = FastAPI()
@@ -55,8 +54,8 @@ async def train_endpoint(batch_size,ewc_lambda,buffer_size,epochs,learning_rate,
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-@app.post("/inference")
+@app.post("/api/inference")
 async def inference(sample: Smiles):
-    ...
-    #TODO add loading model and sending prediction logic
-    return sample
+    print(sample.text, sample.dataset)
+    output = infer.inference(sample.text, sample.dataset)
+    return output

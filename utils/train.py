@@ -167,3 +167,6 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
     requests.post(url="http://localhost:8000/add-msg", json={"message":f'Completed Training Loop\n'})
     print(f'Forgetting Measure for Task1: {forgetting_measure}')
     #yield (f'Forgetting Measure for Task1: {forgetting_measure}')
+
+    model_save_path = f"./models/{dataset}_model.pth"
+    model.save_pretrained(f"models/TIL/{dataset}/")

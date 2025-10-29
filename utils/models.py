@@ -1,4 +1,5 @@
 from pydantic import BaseModel
 
 class Smiles(BaseModel):
-    smiles: str
+    text: str
+    dataset: str
