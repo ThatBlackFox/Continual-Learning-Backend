@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import subprocess
 from fastapi.responses import StreamingResponse
 from utils.models import *
-from utils import train
+from utils import til_train, dil_train, cil_train
 import threading
 import asyncio
 from utils import infer
@@ -31,15 +31,21 @@ async def add_message(message: dict):
     return {"status": "Message added"}
 
 @app.get("/api/train")
-async def train_endpoint(batch_size,ewc_lambda,buffer_size,epochs,learning_rate,refresh_frequency,refresh_steps,task):
-    train_thread = threading.Thread(target = train.train_loop, kwargs={"batch_size":int(batch_size),
-                                                                       "ewc_lambda":float(ewc_lambda),
-                                                                       "buffer_size":int(buffer_size),
-                                                                       "epochs":int(epochs),
-                                                                       "lr":float(learning_rate),
-                                                                       "refresh_frequency":int(refresh_frequency),
-                                                                       "refresh_steps":int(refresh_steps),
-                                                                       "dataset":task})
+async def train_endpoint(batch_size,ewc_lambda,buffer_size,epochs,learning_rate,refresh_frequency,refresh_steps,task,train_mode):
+    kwargs = {  "batch_size":int(batch_size),
+                "ewc_lambda":float(ewc_lambda),
+                "buffer_size":int(buffer_size),
+                "epochs":int(epochs),
+                "lr":float(learning_rate),
+                "refresh_frequency":int(refresh_frequency),
+                "refresh_steps":int(refresh_steps),
+                "dataset":task}
+    if train_mode == 'til':
+        train_thread = threading.Thread(target = til_train.train_loop, kwargs=kwargs)
+    elif train_mode == 'dil':
+        train_thread = threading.Thread(target = dil_train.train_loop, kwargs=kwargs)
+    else:
+        train_thread = threading.Thread(target = cil_train.train_loop, kwargs=kwargs)
     train_thread.start()
     async def event_stream():
         while True:

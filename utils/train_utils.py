@@ -16,7 +16,7 @@ def select_samples(encoded_inputs, indices):
     return {'input_ids': encoded_inputs['input_ids'][indices],
             'attention_mask': encoded_inputs['attention_mask'][indices]}
 
-def load_data(dataset: Literal["Sweet", "Bitter", "BBBP"]):
+def load_data(dataset: Literal["Sweet", "Bitter", "BBBP"], task_id: int = -1):
 
     #Load data
     df1 = pd.read_csv(datasets[dataset])
@@ -31,11 +31,16 @@ def load_data(dataset: Literal["Sweet", "Bitter", "BBBP"]):
 
     train_indices, test_indices, train_labels, test_labels = train_test_split(range(len(inputs)), labels, test_size=0.2, random_state=42)
     val_indices, test_indices, val_labels, test_labels = train_test_split(test_indices, test_labels, test_size=0.5, random_state=42)
-
-    # Create TensorDatasets
-    train_data = TensorDataset(select_samples(encoded_inputs, train_indices)['input_ids'], select_samples(encoded_inputs, train_indices)['attention_mask'], torch.tensor(train_labels))
-    val_data = TensorDataset(select_samples(encoded_inputs, val_indices)['input_ids'], select_samples(encoded_inputs, val_indices)['attention_mask'], torch.tensor(val_labels))
-    test_data = TensorDataset(select_samples(encoded_inputs, test_indices)['input_ids'], select_samples(encoded_inputs, test_indices)['attention_mask'], torch.tensor(test_labels))
+    
+    if task_id == -1:
+        train_data = TensorDataset(select_samples(encoded_inputs, train_indices)['input_ids'], select_samples(encoded_inputs, train_indices)['attention_mask'], torch.tensor(train_labels))
+        val_data = TensorDataset(select_samples(encoded_inputs, val_indices)['input_ids'], select_samples(encoded_inputs, val_indices)['attention_mask'], torch.tensor(val_labels))
+        test_data = TensorDataset(select_samples(encoded_inputs, test_indices)['input_ids'], select_samples(encoded_inputs, test_indices)['attention_mask'], torch.tensor(test_labels))
+    
+    else:
+        train_data = TensorDataset(select_samples(encoded_inputs, train_indices)['input_ids'], select_samples(encoded_inputs, train_indices)['attention_mask'], torch.tensor(train_labels), torch.full((len(train_labels),), task_id, dtype=torch.long))
+        val_data = TensorDataset(select_samples(encoded_inputs, val_indices)['input_ids'], select_samples(encoded_inputs, val_indices)['attention_mask'], torch.tensor(val_labels), torch.full((len(val_labels),), task_id, dtype=torch.long))
+        test_data = TensorDataset(select_samples(encoded_inputs, test_indices)['input_ids'], select_samples(encoded_inputs, test_indices)['attention_mask'], torch.tensor(test_labels), torch.full((len(test_labels),), task_id, dtype=torch.long))
 
     return train_data, val_data, test_data
 

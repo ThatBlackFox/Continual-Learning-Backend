@@ -86,8 +86,8 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
         avg_train_loss = total_loss / len(train_loader)
         requests.post(url="http://localhost:8000/add-msg", json={"message":f'Epoch {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}\n'})
 
-        print(f'Epocgh {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}')
-        #yield (f'Epocgh {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}')
+        print(f'Epoch {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}')
+        #yield (f'Epoch {epoch + 1}/{epochs}, Average Training Loss: {avg_train_loss}')
 
         # Calculate Fisher Information for oEWC after the task
         current_fisher = compute_fisher_information(model, train_loader)
