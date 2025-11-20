@@ -3,12 +3,20 @@ from transformers import RobertaForSequenceClassification
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score
+from utils.cil_model import CILChemBERTa
 from typing import Literal
 from utils.train_utils import *
 import requests
+import os
+
+TASK_IDS = {"Sweet": 0,
+            "Bitter": 1,
+            "BBBP": 2}
+
+model_save_path = f"./models/CIL/model.pt"
 
 def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16, ewc_lambda = 0.4, buffer_size = 1000, epochs = 3, lr=2e-5, refresh_frequency = 1, refresh_steps = 5):
-    train_data, val_data, test_data = load_data(dataset)
+    train_data, val_data, test_data = load_data(dataset, task_id=TASK_IDS[dataset], expand=1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     #yield (device)
@@ -22,8 +30,15 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
 
     replay_buffer = {'input_ids': [], 'attention_mask': [], 'labels': []}
 
-    model = RobertaForSequenceClassification.from_pretrained('seyonec/ChemBERTa-zinc-base-v1', num_labels=2)
+    model = CILChemBERTa()
+    if os.path.exists(model_save_path):
+        checkpoint = torch.load(model_save_path, map_location=device)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        print("Loaded existing model weights.")
+    else:
+        print("No saved model found. Using fresh initialization.")
     model.to(device)
+
     optimizer = AdamW(model.parameters(), lr=lr)
     
     # Variables for tracking accuracy
@@ -113,18 +128,45 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
                 optimizer.step()
 
         # Validation after each epoch
+        # model.eval()
+        # val_preds = []
+        # val_true = []
+        # for batch in val_loader:
+        #     input_ids, attention_mask, labels = batch
+        #     with torch.no_grad():
+        #         output = model(input_ids=input_ids.to(device), attention_mask=attention_mask.to(device))
+        #     logits = output.logits
+        #     preds = torch.argmax(logits, dim=1).cpu().tolist()
+        #     val_preds.extend(preds)
+        #     val_true.extend(labels.cpu().tolist())
+
         model.eval()
         val_preds = []
         val_true = []
-        for batch in val_loader:
-            input_ids, attention_mask, labels = batch
-            with torch.no_grad():
-                output = model(input_ids=input_ids.to(device), attention_mask=attention_mask.to(device))
-            logits = output.logits
-            preds = torch.argmax(logits, dim=1).cpu().tolist()
-            val_preds.extend(preds)
-            val_true.extend(labels.cpu().tolist())
 
+        for batch in val_loader:
+            input_ids, attention_mask, labels = batch          # labels: [B, 4]
+            labels = labels.to(device)                         # move labels to device for ease
+
+            with torch.no_grad():
+                output = model(
+                    input_ids=input_ids.to(device),
+                    attention_mask=attention_mask.to(device)
+                )
+
+            logits = output.logits                             # [B, 3]
+
+            selected_idx = labels[:, 3].long()                 # [B], values in {0,1,2}
+            selected_logits = logits.gather(1, selected_idx.unsqueeze(1)).squeeze(1)
+            preds = (selected_logits > 0).long().cpu().tolist()    
+            true_targets = labels.gather(1, selected_idx.unsqueeze(1)).squeeze(1).cpu().tolist()
+            
+            val_preds.extend(preds)
+            val_true.extend(true_targets)
+
+        # print(logits[1:10]) 
+        # print(labels[1:10])
+        # exit(1)
         val_accuracy = accuracy_score(val_true, val_preds)
         anytime_accuracies.append(val_accuracy)
 
@@ -139,17 +181,49 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
     print(f'Anytime Average Accuracy: {avg_anytime_accuracy}')
     #yield (f'Anytime Average Accuracy: {avg_anytime_accuracy}')
 
+    # # Test on the initial task
+    # test_preds = []
+    # test_true = []
+    # for batch in test_loader:
+    #     input_ids, attention_mask, labels = batch
+    #     with torch.no_grad():
+    #         output = model(input_ids=input_ids.to(device), attention_mask=attention_mask.to(device))
+    #     logits = output.logits
+    #     preds = torch.argmax(logits, dim=1).cpu().tolist()
+    #     test_preds.extend(preds)
+    #     test_true.extend(labels.cpu().tolist())
     # Test on the initial task
+
     test_preds = []
     test_true = []
+
     for batch in test_loader:
         input_ids, attention_mask, labels = batch
+        labels = labels.to(device)
+
         with torch.no_grad():
-            output = model(input_ids=input_ids.to(device), attention_mask=attention_mask.to(device))
-        logits = output.logits
-        preds = torch.argmax(logits, dim=1).cpu().tolist()
+            output = model(
+                input_ids=input_ids.to(device),
+                attention_mask=attention_mask.to(device)
+            )
+
+        logits = output.logits                 # [B, 3]
+        selected_idx = labels[:, 3].long()        # [B], task index for each sample
+
+        # select the correct task's logit for each sample
+        selected_logits = logits.gather(1, selected_idx.unsqueeze(1)).squeeze(1)  # [B]
+
+        # binary prediction from the chosen logit
+        preds = (selected_logits > 0).long().cpu().tolist()
+    
+
+        # true binary target from the chosen label column
+        true_targets = labels.gather(1, selected_idx.unsqueeze(1)).squeeze(1).cpu().tolist()
+
         test_preds.extend(preds)
-        test_true.extend(labels.cpu().tolist())
+        test_true.extend(true_targets)
+
+
 
     test_accuracy = accuracy_score(test_true, test_preds)
     initial_accuracies['Task1'] = test_accuracy
@@ -167,5 +241,8 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
     print(f'Forgetting Measure for Task1: {forgetting_measure}')
     #yield (f'Forgetting Measure for Task1: {forgetting_measure}')
 
-    model_save_path = f"./models/{dataset}_model.pth"
-    model.save_pretrained(f"models/TIL/{dataset}/")
+    
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        }, 
+        model_save_path)

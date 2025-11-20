@@ -6,10 +6,13 @@ from sklearn.metrics import accuracy_score
 from typing import Literal
 from utils.train_utils import *
 import requests
+import os
 
 TASK_IDS = {"Sweet": 0,
             "Bitter": 1,
             "BBBP": 2}
+model_save_path = f"./models/DIL/model.pt"
+
 
 def add_to_buffer(replay_buffer, buffer_size, batch_size, input_ids, attention_mask, labels, task_ids):
     if len(replay_buffer['input_ids']) >= buffer_size:
@@ -65,10 +68,18 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
     # model = RobertaForSequenceClassification.from_pretrained('seyonec/ChemBERTa-zinc-base-v1', num_labels=2)
     model = DILChemBERTa(num_tasks = 3, num_labels = 2)
 
+    if os.path.exists(model_save_path):
+        checkpoint = torch.load(model_save_path, map_location=device)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        print("Loaded existing model weights.")
+    else:
+        print("No saved model found. Using fresh initialization.")
+    model.to(device)
+
     # Wrap in DataParallel
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs")
-        model = torch.nn.DataParallel(model)
+    # if torch.cuda.device_count() > 1:
+    #     print(f"Using {torch.cuda.device_count()} GPUs")
+    #     model = torch.nn.DataParallel(model)
     
     model.to(device)
 
@@ -213,7 +224,6 @@ def train_loop(dataset: Literal["Sweet", "Bitter", "BBBP"], batch_size: int = 16
     print(f'Forgetting Measure for Task1: {forgetting_measure}')
     #yield (f'Forgetting Measure for Task1: {forgetting_measure}')
 
-    model_save_path = f"./models/DIL/model.pt"
     
     torch.save({
         "model_state_dict": model.state_dict(),

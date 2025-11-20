@@ -1,4 +1,6 @@
-from utils.til_train import train_loop
+from utils.dil_train import train_loop
 import warnings
 warnings.filterwarnings("ignore")
-train_loop('Sweet')
+
+train_loop('Bitter')
+

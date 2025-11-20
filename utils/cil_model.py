@@ -32,18 +32,29 @@ class CILChemBERTa(nn.Module):
         self.model = RobertaForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
         self.model.classifier = CILHead(self.model.config)
 
-    def forward(self, inputs_embeds, attention_mask, labels=None):
+    def forward(self, input_ids, attention_mask, labels=None):
         
         # Forward through the base model
         outputs = self.model(
-            inputs_embeds=inputs_embeds,
+            input_ids=input_ids,
             attention_mask=attention_mask,
         )
         
         loss = None
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss()
-            loss = loss_fct(outputs.logits.view(-1, self.model.num_labels), labels.view(-1))
+            if labels.shape[1] == 4:
+                selected_idx = labels[:, 3].long()   # [B]
+
+                # pick the logits to train: [B]
+                selected_logits = outputs.logits.gather(1, selected_idx.unsqueeze(1)).squeeze(1)
+
+                # pick the corresponding 0/1 targets: [B]
+                selected_targets = labels.gather(1, selected_idx.unsqueeze(1)).squeeze(1).float()
+
+                loss_fct = nn.BCEWithLogitsLoss()
+                loss = loss_fct(selected_logits, selected_targets)
+            else:
+                raise NotImplementedError("Please provide task ID when providing labels")
         
         return SequenceClassifierOutput(
             loss=loss,
